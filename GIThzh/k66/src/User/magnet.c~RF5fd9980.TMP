@@ -1,0 +1,322 @@
+#define OUT1     ADC0_SE13
+#define OUT2     ADC0_SE12
+#define OUT3     ADC1_SE11
+#define OUT4     ADC1_SE10
+#define OUT5     ADC1_SE13
+#define OUT6     ADC1_SE12
+
+#include "ADC.h"
+#include "common.h"
+#include "include.h"
+#include "steer.h"
+#include "findtrack.h"
+
+int kongzhi;
+int circle1=0;
+int circle2=0;
+int break1,break2;
+int key1=0;
+int key2=0;
+int circleout1=0;
+int circleout2=0;
+int magleft,magmiddle,magright,maglleft,magrright,magF1,magF2,magF3,out;
+float lasterror=0;
+float mid;
+extern float Error;
+extern int kongzhi;
+int stopstop;
+int yyy=6;
+int magnetanalysis1(void)
+{
+   float error,k1,k2;
+ //  int pianchazhi;
+   maglleft=ADC_Ave(ADC_0,ADC0_SE11,ADC_12bit,20);
+   magleft=ADC_Ave(ADC_0,ADC0_SE13,ADC_12bit,20);
+   magmiddle=ADC_Ave(ADC_1,ADC1_SE12,ADC_12bit,20);
+   magright=ADC_Ave(ADC_1,ADC1_SE10,ADC_12bit,20);
+   magrright=ADC_Ave(ADC_1,ADC1_SE13,ADC_12bit,20);
+   
+   mid=1.0*magmiddle/magF2;
+   if(magleft>magright)
+    {
+   //   pianchazhi=magleft-magright;
+      error=287*(magleft-magright)/(magleft+magright);
+     }
+   else if(magleft<magright)
+    {
+   //   pianchazhi=magright-magleft;
+      error=287*(magright-magleft)/(magleft+magright);
+     }
+   else 
+    {
+   //   pianchazhi=0;
+      error=0;
+     }
+  k1=0.3+(error* error)*0.00003;
+   //k1=1;
+   k2=0;//应该是调动态的，麻烦你，哦不，您，不要简单粗暴一个定值好吗？？？？？
+        //你是觉得能省点时间？？
+   if(mid>0.85)
+     out=0;
+   
+   else if(magleft>magright)
+     {
+       if(magmiddle<200)
+         out=0;
+       else if(magright<400)
+         out=240;
+       else
+        out=(int)(k1*error+k2*(error-lasterror));
+      }
+   else if(magleft<magright)
+     {
+       if(magmiddle<200)
+         out=0;
+       else if(magleft<400)
+         out=-240;
+       else
+       out=(int)(-k1*error+k2*(error-lasterror));
+      }
+   
+   if(out>250)
+     out=250;
+   if(out<-250)
+     out=-250;
+   lasterror=error;
+   Error=(int)(out*0.125);
+  return out;
+ }
+
+void magnetanalysis2(void)
+{
+  maglleft=ADC_Ave(ADC_1,ADC0_SE11,ADC_12bit,20);
+   magleft=ADC_Ave(ADC_0,ADC0_SE13,ADC_12bit,20);
+   magmiddle=ADC_Ave(ADC_1,ADC1_SE12,ADC_12bit,20);
+   magright=ADC_Ave(ADC_1,ADC1_SE10,ADC_12bit,20);
+   magrright=ADC_Ave(ADC_1,ADC1_SE13,ADC_12bit,20);
+  // mid=magmiddle/magF2;
+    stopstop=(int)((maglleft+magleft+magmiddle+magright+magrright)/5);
+}
+
+void magnetcontrol(int input)
+{
+  if(roundflagl==1)
+        {
+           FTM_PWM_Duty(FTM3,FTM_CH0,SteerMax+input);////有修改
+            yyy--;
+            if(yyy==0)
+            roundflagl=0;
+        }
+        else if(roundflagr==1)
+        {
+            FTM_PWM_Duty(FTM3,FTM_CH0,SteerMin+input);////有修改
+            yyy--;
+            if(yyy==0)
+            roundflagr=0;
+        }
+
+        else
+        {
+           FTM_PWM_Duty(FTM3,FTM_CH0,SteerMidle+input);////有修改
+           roundflagl=0;
+             roundflagr=0;
+           yyy=6;
+        }
+}
+
+void circuitleft(void)
+{
+  magnetanalysis2();
+  if(mid>0.82)
+  {
+      if(maglleft>1200)
+      {
+        circle1++;
+       
+        if(circle1==18)
+        {
+          key1=1;
+          for(break1=0;break1<1500000;break1++)
+          {
+            kongzhi=150;
+            magnetcontrol(kongzhi);
+          }
+        }
+        else if((key1==1)&&(magrright>600))
+         {
+           circleout1++;
+        
+             if(circleout1==1)
+            {
+               for(break2=0;break2<1200000;break2++)
+               {
+                kongzhi=250;
+                magnetcontrol(kongzhi);
+                key1=2;
+                }
+               
+             }
+         }
+        magnetcontrol(0);
+       }
+      
+      else
+      magnetcontrol(0);
+    }
+  else if(mid<=0.82)
+   {
+     if((key1==1)&&(magrright>600))
+      {
+        circleout1++;
+        
+        if(circleout1==1)
+        {
+          for(break2=0;break2<1500000;break2++)
+          {
+            kongzhi=250;
+            magnetcontrol(kongzhi);
+          }
+          key1=2;
+        }
+      }
+     else
+    magnetcontrol(kongzhi);
+   }
+  
+  else if((key1==1)&&(magrright>600))
+      {
+        circleout1++;
+        
+        if(circleout1==1)
+        {
+          for(break2=0;break2<1500000;break2++)
+          {
+            kongzhi=250;
+            magnetcontrol(kongzhi);
+          }
+          key1=2;
+        }
+      }
+}
+
+void circuitright(void)
+{
+  magnetanalysis2();
+  if(mid>0.82)
+   {
+       if(magrright>2100)//右进环
+      {
+        circle2++;
+        if(circle2==5)
+        {
+          key2=1;
+          for(break1=0;break1<1000000;break1++)
+          {
+            kongzhi=-190;
+            magnetcontrol(kongzhi);
+           }
+         }
+        magnetcontrol(0);
+       }
+       else
+       magnetcontrol(0);
+   }
+  else if(mid<=0.82)
+  {
+    magnetcontrol(kongzhi);
+  }
+  else if(key2==1&&maglleft>800)//右进环后出
+    {
+        circleout2++;
+        
+        if(circleout2==1)
+        {
+          for(break2=0;break2<800000;break2++)
+          {
+            kongzhi=-245;
+            magnetcontrol(kongzhi);
+            key2=2;
+           }
+         }
+      }
+}
+
+
+/*void MovingAverage(void)
+{
+  for (int i=0;i<6;i++)//采集5次
+   {
+     mag3[0][i]=adc_once   (ADC0,OUT1, ADC_8bit) ;
+     mag3[1][i]=adc_once   (ADC0,OUT2, ADC_8bit) ;
+     mag3[2][i]=adc_once   (ADC1,OUT3, ADC_8bit) ;
+   }
+  //排序
+  for(int j=0;j<3;j++)
+  {
+    for(int a=0;a<4;a++)
+    {
+      for(int b=0;b<4-a;b++)
+      {
+        if(mag3[j][b]>mag3[j][b+1])
+        {
+          int temp;
+          temp=mag3[j][b+1];
+          mag3[j][b+1]=mag3[j][b];
+          mag3[j][b]=temp;
+        }
+      }
+    }
+  }
+  //取中间三个ADC值均值
+  for(k=0;k<3;k++)
+  {
+    sum[k]=(mag3[k][1]+mag3[k][2]+mag3[k][3])/3;
+  }
+  //滤波
+  int i1=0;
+  int i2=0;
+  int i3=0;
+  int i4=0;
+  int i5=0;
+  int i6=0;
+  float sum1,sum2,sum3,sum4,sum5;
+
+  float maggee1[20];
+  float maggee2[20];
+  float maggee3[20];
+  float maggee4[20];
+  float maggee5[20];
+  float maggee6[20];
+
+  maggee1[i1++]=adc_once   (ADC1,OUT1, ADC_8bit) ;
+  maggee2[i2++]=adc_once   (ADC0,OUT2, ADC_8bit) ;
+  maggee3[i3++]=adc_once   (ADC0,OUT3, ADC_8bit) ;
+  maggee4[i4++]=adc_once   (ADC1,OUT4, ADC_8bit) ;
+  maggee5[i5++]=adc_once   (ADC0,OUT5, ADC_8bit) ;
+  maggee6[i6++]=adc_once   (ADC1,OUT6, ADC_8bit) ;
+
+  if(i1==20)
+    i1=0;
+  if(i2==20)
+    i2=0;
+  if(i3==20)
+    i3=0;
+  if(i4==20)
+    i4=0;
+  if(i5==20)
+    i5=0;
+  if(i6==20)
+    i6=0;
+
+  for(int count=0;count<20;count++)
+  {
+    sum1+=maggee1[count];
+    sum2+=maggee2[count];
+    sum3+=maggee3[count];
+    sum4+=maggee4[count];
+    sum5+=maggee5[count];
+    sum6+=maggee6[count];
+  }//sumk与前方sum[k]等效
+
+}
+*/
